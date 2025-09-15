@@ -1,0 +1,58 @@
+default_agent: finance_agent_1
+agents:
+  finance_agent:
+    name: finance_agent
+    entrypoint: /home/sagemaker-user/amazon-bedrock-agentcore-samples/01-tutorials/02-AgentCore-gateway/02-transform-apis-into-mcp-tools/01-transform-openapi-into-mcp-tools/finance_agent.py
+    platform: linux/arm64
+    container_runtime: none
+    aws:
+      execution_role: arn:aws:iam::251267873559:role/AmazonBedrockAgentCoreSDKRuntime-us-west-2-c2ccff2198
+      execution_role_auto_create: false
+      account: '251267873559'
+      region: us-west-2
+      ecr_repository: 251267873559.dkr.ecr.us-west-2.amazonaws.com/bedrock-agentcore-finance_agent
+      ecr_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: finance_agent-eud3pz7aw5
+      agent_arn: arn:aws:bedrock-agentcore:us-west-2:251267873559:runtime/finance_agent-eud3pz7aw5
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-finance_agent-builder
+      execution_role: arn:aws:iam::251267873559:role/AmazonBedrockAgentCoreSDKCodeBuild-us-west-2-c2ccff2198
+      source_bucket: bedrock-agentcore-codebuild-sources-251267873559-us-west-2
+    authorizer_configuration: null
+    oauth_configuration: null
+  finance_agent_1:
+    name: finance_agent_1
+    entrypoint: /home/sagemaker-user/amazon-bedrock-agentcore-samples/01-tutorials/02-AgentCore-gateway/02-transform-apis-into-mcp-tools/01-transform-openapi-into-mcp-tools/finance_agent.py
+    platform: linux/arm64
+    container_runtime: none
+    aws:
+      execution_role: arn:aws:iam::251267873559:role/CustomerSupportAssistantBedrockAgentCoreRole-us-west-2
+      execution_role_auto_create: false
+      account: '251267873559'
+      region: us-west-2
+      ecr_repository: null
+      ecr_auto_create: true
+      network_configuration:
+        network_mode: PUBLIC
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: finance_agent_1-8qUBqjCA4X
+      agent_arn: arn:aws:bedrock-agentcore:us-west-2:251267873559:runtime/finance_agent_1-8qUBqjCA4X
+      agent_session_id: 5a45995d-3dcf-4026-86e5-d018cdca8ea0
+    codebuild:
+      project_name: null
+      execution_role: null
+      source_bucket: null
+    authorizer_configuration: null
+    oauth_configuration: null

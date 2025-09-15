@@ -1,0 +1,147 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Intrinio API v2",
+    "version": "2.0.0",
+    "description": "Financial data API"
+  },
+  "servers": [
+    {
+      "url": "https://api-v2.intrinio.com"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "api_key"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/companies/{identifier}": {
+      "get": {
+        "operationId": "getCompany",
+        "summary": "Get company information",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Company identifier (ticker symbol)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Company information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/companies/{identifier}/fundamentals": {
+      "get": {
+        "operationId": "getCompanyFundamentals",
+        "summary": "Get company fundamentals",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Company fundamentals data"
+          }
+        }
+      }
+    },
+    "/companies/{identifier}/historical_data/{tag}": {
+      "get": {
+        "operationId": "getHistoricalData",
+        "summary": "Get historical financial data",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Company identifier"
+          },
+          {
+            "name": "tag",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["marketcap", "netincome", "totalrevenue", "totalassets", "cashandequivalents", "freecashflow", "pricetoearnings", "pricetobook", "longtermdebt", "totaldebt"]
+            },
+            "description": "Financial data tag"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 100
+            },
+            "description": "Number of results to return"
+          },
+          {
+            "name": "frequency",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["daily", "weekly", "monthly", "quarterly", "yearly"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historical financial data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "historical_data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {"type": "string"},
+                          "value": {"type": "number"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
