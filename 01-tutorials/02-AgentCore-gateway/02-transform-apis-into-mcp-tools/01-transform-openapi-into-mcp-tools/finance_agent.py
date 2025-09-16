@@ -18,12 +18,11 @@ from bedrock_agentcore.memory import MemoryClient
 REGION = os.getenv('AWS_REGION', 'us-east-1') # AWS region for the agent
 ACTOR_ID = "user_123" # It can be any unique identifier (AgentID, User ID, etc.)
 SESSION_ID = "personal_session_001" # Unique session identifier
-GATEWAY_URL='https://testgateway90a1643b-tudzt74ldc.gateway.bedrock-agentcore.us-west-2.amazonaws.com/mcp'
-COGNITO_URL='https://agentcore-350f8e67.auth.us-west-2.amazoncognito.com'
+GATEWAY_URL='https://testgateway810d5a68-sbcqd21fmi.gateway.bedrock-agentcore.us-west-2.amazonaws.com/mcp'
 
 # Setup
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("personal-agent")
+logger = logging.getLogger("finance-agent")
 
 
 from bedrock_agentcore_starter_toolkit.operations.gateway.client import GatewayClient
@@ -39,7 +38,6 @@ SESSION_ID = "personal_session_001" # Unique session identifier
 from lab_helpers.utils import get_ssm_parameter, put_ssm_parameter  
 memory_client = MemoryClient(region_name=os.environ['AWS_DEFAULT_REGION'])
 memory_name = "FinanceAgentMemory"
-
 
 def create_or_get_memory_resource():
     try:
@@ -70,7 +68,7 @@ def create_or_get_memory_resource():
         except Exception as e:
             print(f"Failed to create memory resource: {e}")
             return None
-
+            
 memory_id = create_or_get_memory_resource()
 if memory_id:
     print("✅ AgentCore Memory created successfully!")
@@ -84,7 +82,6 @@ class MemoryHookProvider(HookProvider):
         self.memory_id = memory_id
         self.actor_id = actor_id
         self.session_id = session_id
-    
     def on_agent_initialized(self, event: AgentInitializedEvent):
         """Load recent conversation history when agent starts"""
         try:
@@ -114,14 +111,19 @@ class MemoryHookProvider(HookProvider):
             logger.error(f"Memory load error: {e}")
     
     def on_message_added(self, event: MessageAddedEvent):
+        MAX_LENGTH = 9000
         """Store messages in memory"""
-        messages = event.agent.messages
+        messages = event.agent.messages     
+        if len(messages) > MAX_LENGTH:
+            truncated_text = messages[:MAX_LENGTH]
+        else:
+            truncated_text = messages
         try:
             self.memory_client.create_event(
                 memory_id=self.memory_id,
                 actor_id=self.actor_id,
                 session_id=self.session_id,
-                messages=[(str(messages[-1].get("content", "")), messages[-1]["role"])]
+                messages=[(str(truncated_text[-1].get("content", "")), truncated_text[-1]["role"])]
             )
         except Exception as e:
             logger.error(f"Memory save error: {e}")
@@ -129,78 +131,112 @@ class MemoryHookProvider(HookProvider):
     def register_hooks(self, registry: HookRegistry):
         # Register memory hooks
         registry.add_callback(MessageAddedEvent, self.on_message_added)
-        registry.add_callback(AgentInitializedEvent, self.on_agent_initialized)
- 
- 
-def _get_cognito_token(
-    cognito_domain_url: str,
-    client_id: str,
-    client_secret: str,
-    audience: str = "MCPGateway",
-) -> Dict[str, Any]:
-    """
-    Get OAuth2 token from Amazon Cognito or Auth0 using client credentials grant type.
 
-    Args:
-        cognito_domain_url: The full Cognito/Auth0 domain URL
-        client_id: The App Client ID
-        client_secret: The App Client Secret
-        audience: The audience for the token (default: MCPGateway)
+import base64, json, time
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
-    Returns:
-        Token response containing access_token, expires_in, token_type
-    """
-    # Construct the token endpoint URL
-    if "auth0.com" in cognito_domain_url:
-        url = f"{cognito_domain_url.rstrip('/')}/oauth/token"
-        # Use JSON format for Auth0
-        headers = {"Content-Type": "application/json"}
-        data = {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "audience": audience,
-            "grant_type": "client_credentials",
-            "scope": "invoke:gateway",
-        }
-        # Send as JSON for Auth0
-        response_method = lambda: requests.post(url, headers=headers, json=data)
-    else:
-        # Cognito format
-        url = f"{cognito_domain_url.rstrip('/')}/oauth2/token"
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        data = {
-            "grant_type": "client_credentials",
-            "client_id": client_id,
-            "client_secret": client_secret,
-        }
-        # Send as form data for Cognito
-        response_method = lambda: requests.post(url, headers=headers, data=data)
+
+def b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode().rstrip("=")
+
+def get_secret():
+
+    secret_name = "AthenzPrivateKey"
+    region_name = "us-west-2"
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
 
     try:
-        # Make the request
-        response = response_method()
-        response.raise_for_status()  # Raise exception for bad status codes
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        raise e
 
-        provider_type = "Auth0" if "auth0.com" in cognito_domain_url else "Cognito"
-        logging.info(f"Successfully obtained {provider_type} access token")
-        return response.json()
+    secret = get_secret_value_response['SecretString']
+    return secret
 
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error getting token: {e}")
-        if hasattr(response, "text") and response.text:
-            logging.error(f"Response: {response.text}")
-        raise
+def generate_jwt_token():
 
-import requests
-response = _get_cognito_token("https://agentcore-efb65272.auth.us-west-2.amazoncognito.com","520h7q7t90154l65dh6ieq4nbe", "1t2qram60v0oip11i3fum0f2nfgqsv1nsk2t8iqib34jnhngfkj3")
+    # JWT header and payload
+    header = {
+        "alg": "ES256",
+        "typ": "JWT",
+        "kid": "v0"
+    }
+    payload = {
+        "iss": "idb2b.finance.agentic-test.217f928e-f18b-4123-9682-dd320fc1fcb4",
+        "sub": "idb2b.finance.agentic-test.217f928e-f18b-4123-9682-dd320fc1fcb4",
+        "aud": "https://id-uat.b2b.yahooincapis.com/zts/v1", 
+        "exp": int(time.time()) + 10 * 60 * 60  # 10 minutes
+    }
+    
+    # Encode header and payload
+    encoded_header = b64url(json.dumps(header, separators=(",", ":")).encode())
+    encoded_payload = b64url(json.dumps(payload, separators=(",", ":")).encode())
+    signing_input = f"{encoded_header}.{encoded_payload}".encode()
+    private_key_str = get_secret()
+    private_key = serialization.load_pem_private_key(bytearray(private_key_str, "UTF-8"), password=None)
+    # Load EC private key
+  #  with open("./client_private_key.pem", "rb") as key_file:
+#     private_key = serialization.load_pem_private_key(key_file.read(), password=None)
+    print ("private key successful")
+    # Sign and convert DER → raw (r||s)
+    der_signature = private_key.sign(signing_input, ec.ECDSA(hashes.SHA256()))
+    r, s = decode_dss_signature(der_signature)
+    r_bytes = r.to_bytes(32, byteorder="big")
+    s_bytes = s.to_bytes(32, byteorder="big")
+    raw_signature = r_bytes + s_bytes
+    
+    # Encode raw signature to base64url
+    encoded_signature = b64url(raw_signature)
+    
+    # Final JWT
+    jwt_token = f"{encoded_header}.{encoded_payload}.{encoded_signature}"
+    print("JWT Client Assertion:\n", jwt_token)
+    return jwt_token
 
-access_token =response["access_token"]
+def get_access_token():
+    url = "https://id-uat.b2b.yahooincapis.com/zts/v1/oauth2/token"
+    payload = {
+        "grant_type": "client_credentials",
+        "scope": "agent",
+        "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+        "client_assertion": generate_jwt_token()
+    }
+    
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    
+    response = requests.post(url, data=payload, headers=headers)
+    
+   
+    response_json=response.json()
+    access_token = response_json.get("access_token")
+    print("access token: ", access_token)
+    return access_token
+
 
 # Initialize the Gateway client
 gateway_client_toolkit = GatewayClient(region_name=os.environ['AWS_DEFAULT_REGION'])
-# EZ Auth - automatically sets up Cognito OAuth
-# access_token = gateway_client_toolkit.get_access_token_for_cognito(cognito_result["client_info"])
+ 
+import requests
+from bedrock_agentcore_starter_toolkit.operations.gateway.client import GatewayClient
 
+# Initialize the Gateway client
+gateway_client_toolkit = GatewayClient(region_name=os.environ['AWS_DEFAULT_REGION'])
+
+access_token =  get_access_token()
 
 def create_streamable_http_transport():
     return streamablehttp_client(GATEWAY_URL,headers={"Authorization": f"Bearer {access_token}"})
@@ -208,47 +244,29 @@ def create_streamable_http_transport():
 mcp_client = MCPClient(create_streamable_http_transport)
 
 ## The IAM group/user/ configured in ~/.aws/credentials should have access to Bedrock model
-yourmodel = BedrockModel(
-    model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-    temperature=0.7
-)
-
-
  
-
-
-SYSTEM_PROMPT="You are a Financial Agent. You can use various tools available to you to get the financial and company information for a company" \
-"Use the company name or ticker within the prompt and pass it as a required parametr or identifier to the tools. Identify the required parameters or identifiers" \
-"Sometimes tag is a required parameter to the tool . use your judgement to derive a possible value for the tag from the prompt" 
-# Configure the root strands logger. Change it to DEBUG if you are debugging the issue
-logging.getLogger("strands").setLevel(logging.INFO)
-
-# Add a handler to see the logs
-logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s", 
-    handlers=[logging.StreamHandler()]
-)
-
 with mcp_client:
     # Call the listTools 
     tools = mcp_client.list_tools_sync()
     
      
 app = BedrockAgentCoreApp()
+
 def create_personal_agent():
-    """Create personal agent with memory and web search"""
+    """Create personal agent with memory """
     agent = Agent(
         name="PersonalAssistant",
-        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",  # or your preferred model
-        system_prompt=f""" You are a Financial Agent. You can use various tools available to you to get the financial and company information for a company
-Use the company name or ticker within the prompt and pass it as a required parametr or identifier to the tools. Identify the required parameters or identifiers
-Sometimes tag is a required parameter to the tool . use your judgement to derive a possible value for the tag from the prompt          
-        Today's date: {datetime.today().strftime('%Y-%m-%d')}
-        Be friendly and professional.""",
+        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        system_prompt=f"""You are a Financial Agent. You can use various tools available to you to get the financial and company information for a company
+                        Use the company name or ticker within the prompt and pass it as a required parametr or identifier to the tools. Identify the required parameters or identifiers
+                        Sometimes tag is a required parameter to the tool . use your judgement to derive a possible value for the tag from the prompt          
+                        Today's date: {datetime.today().strftime('%Y-%m-%d')}
+                        Be friendly and professional.""",
         hooks=[MemoryHookProvider(memory_client, memory_id, ACTOR_ID, SESSION_ID)],
         tools=tools,
     )
     return agent
+
 agent = create_personal_agent()
 logger.info("✅ Personal agent created with memory and web search")
 

@@ -18,7 +18,7 @@ username = "testuser"
 secret_name = "customer_support_agent"
 
 role_name = f"CustomerSupportAssistantBedrockAgentCoreRole-{REGION}"
-policy_name = f"FinanceAssistantBedrockAgentCorePolicy-{REGION}"
+policy_name = f"CustomerSupportAssistantBedrockAgentCorePolicy-{REGION}"
 
 
 def get_ssm_parameter(name: str, with_decryption: bool = True) -> str:
@@ -472,7 +472,7 @@ def create_agentcore_runtime_execution_role():
                     "bedrock-agentcore:GetMemoryRecord",
                     "bedrock-agentcore:GetMemory",
                     "bedrock-agentcore:RetrieveMemoryRecords",
-                    "bedrock-agentcore:ListMemoryRecords"
+                    "bedrock-agentcore:ListMemoryRecords",
                     "bedrock-agentcore:ListEvents"
                 ],
                 "Resource": [f"arn:aws:bedrock-agentcore:{region}:{account_id}:*"],
@@ -483,6 +483,12 @@ def create_agentcore_runtime_execution_role():
                 "Action": ["ssm:GetParameter"],
                 "Resource": [f"arn:aws:ssm:{region}:{account_id}:parameter/app/*"],
             },
+            {
+                "Sid": "GetSecretValue",
+                "Effect": "Allow",
+                "Action": ["secretsmanager:GetSecretValue"],
+                "Resource": "arn:aws:secretsmanager:*:*:secret:*",
+            },  
         ],
     }
 

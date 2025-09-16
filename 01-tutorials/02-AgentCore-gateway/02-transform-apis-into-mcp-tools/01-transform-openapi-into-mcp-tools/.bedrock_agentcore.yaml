@@ -38,8 +38,8 @@ agents:
       execution_role_auto_create: false
       account: '251267873559'
       region: us-west-2
-      ecr_repository: null
-      ecr_auto_create: true
+      ecr_repository: 251267873559.dkr.ecr.us-west-2.amazonaws.com/bedrock-agentcore-finance_agent_1
+      ecr_auto_create: false
       network_configuration:
         network_mode: PUBLIC
       protocol_configuration:
@@ -49,10 +49,10 @@ agents:
     bedrock_agentcore:
       agent_id: finance_agent_1-8qUBqjCA4X
       agent_arn: arn:aws:bedrock-agentcore:us-west-2:251267873559:runtime/finance_agent_1-8qUBqjCA4X
-      agent_session_id: 5a45995d-3dcf-4026-86e5-d018cdca8ea0
+      agent_session_id: d93830e2-e336-49a9-b56a-5052e48aebd6
     codebuild:
-      project_name: null
-      execution_role: null
-      source_bucket: null
+      project_name: bedrock-agentcore-finance_agent_1-builder
+      execution_role: arn:aws:iam::251267873559:role/AmazonBedrockAgentCoreSDKCodeBuild-us-west-2-e07ff73692
+      source_bucket: bedrock-agentcore-codebuild-sources-251267873559-us-west-2
     authorizer_configuration: null
     oauth_configuration: null

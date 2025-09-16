@@ -5,3 +5,4 @@ boto3
 bedrock-agentcore
 bedrock-agentcore-starter-toolkit
 aws-opentelemetry-distro~=0.10.1
+cryptography
